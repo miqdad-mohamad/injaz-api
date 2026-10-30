@@ -23,6 +23,11 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
         user.role = 'AD'
         user.save()
 
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsCompanyAdminOrReadOnly()]
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
@@ -33,6 +38,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Project.objects.all()
         else :
             return Project.objects.filter(workspace=self.request.user.workspace)
+
+    def perform_create(self, serializer):
+        if self.request.user.is_superuser:
+            serializer.save()
+        else :
+            serializer.save(workspace=self.request.user.workspace)
         
     
 
@@ -57,7 +68,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         if user.is_superuser :
             return CustomUser.objects.all()
         elif user.workspace is not None:
-            return CustomUser.objects.filter(workspace=user.workspace)
+            return CustomUser.objects.filter(workspace=user.workspace)       
         else :
             return CustomUser.objects.filter(id=user.id)
 
@@ -81,4 +92,9 @@ class CommentViewSet(viewsets.ModelViewSet):
                     return Comment.objects.all()
                 else :
                     return Comment.objects.filter(task__project__workspace=self.request.user.workspace)
+    def perform_create(self, serializer):
+            if self.request.user.is_superuser:
+                serializer.save()
+            else :
+                serializer.save(author=self.request.user)
 
