@@ -50,6 +50,8 @@ class Project(models.Model):
 class Task(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
+    created_by = models.ForeignKey(
+        'CustomUser', on_delete=models.CASCADE, related_name='created_tasks')
     project = models.ForeignKey(
         'Project', on_delete=models.CASCADE, related_name='tasks')
     watchers = models.ManyToManyField(

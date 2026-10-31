@@ -1,9 +1,10 @@
 from rest_framework import viewsets
 from core.models import Workspace, Project, Task, CustomUser, Comment
 from core.serializers import WorkspaceSerializer, ProjectSerializer, TaskSerializer, CustomUserSerializer, CommentSerializer
-from .permissions import IsCompanyAdminOrReadOnly
+from .permissions import IsCompanyAdminOrReadOnly, IsTaskAssigneeOrCreator, IsCommentAuthorOrReadOnly
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
+
 
 class WorkspaceViewSet(viewsets.ModelViewSet):
     serializer_class = WorkspaceSerializer
@@ -12,11 +13,13 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if self.request.user.is_superuser:
             return Workspace.objects.all()
-        else :
+        else:
             return Workspace.objects.filter(id=self.request.user.workspace.id)
+
     def perform_create(self, serializer):
-        if self.request.user.workspace is not None :
-            raise ValidationError("You are already part of workspace, you cannot create a new one")
+        if self.request.user.workspace is not None:
+            raise ValidationError(
+                "You are already part of workspace, you cannot create a new one")
         workspace = serializer.save()
         user = self.request.user
         user.workspace = workspace
@@ -34,42 +37,71 @@ class ProjectViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsCompanyAdminOrReadOnly]
 
     def get_queryset(self):
-        if self.request.user.is_superuser :
+        if self.request.user.is_superuser:
             return Project.objects.all()
-        else :
+        else:
             return Project.objects.filter(workspace=self.request.user.workspace)
 
     def perform_create(self, serializer):
         if self.request.user.is_superuser:
             serializer.save()
-        else :
+        else:
             serializer.save(workspace=self.request.user.workspace)
-        
-    
+
 
 class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticated, IsCompanyAdminOrReadOnly]
+    permission_classes = [IsAuthenticated, IsTaskAssigneeOrCreator]
 
     def get_queryset(self):
-            if self.request.user.is_superuser :
-                return Task.objects.all()
-            else :
-                return Task.objects.filter(project__workspace=self.request.user.workspace)
+        user = self.request.user
+        if user.is_superuser:
+            return Task.objects.all()
+        elif user.workspace:
+            return Task.objects.filter(project__workspace=user.workspace)
+        return Task.objects.none()
+
+    def perform_create(self, serializer):
+        if self.request.user.is_superuser:
+            serializer.save()
+        else:
+            serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        task = self.get_object()
+        user = self.request.user
+
+        is_only_assignee = (
+            user == task.assignee and
+            user != task.created_by and
+            user.role != 'AD' and
+            not user.is_superuser
+        )
+
+        if is_only_assignee:
+            sent_fields = set(self.request.data.keys())
+
+            if not sent_fields.issubset({'status'}):
+                raise PermissionDenied(
+                    "As an assignee, you can only update the task status.")
+
+            serializer.save()
+        else:
+            serializer.save()
 
 
 class CustomUserViewSet(viewsets.ModelViewSet):
     serializer_class = CustomUserSerializer
-    permission_classes = []
+    permission_classes = [IsAuthenticated, IsCompanyAdminOrReadOnly]
 
     def get_queryset(self):
         user = self.request.user
 
-        if user.is_superuser :
+        if user.is_superuser:
             return CustomUser.objects.all()
         elif user.workspace is not None:
-            return CustomUser.objects.filter(workspace=user.workspace)       
-        else :
+            return CustomUser.objects.filter(workspace=user.workspace)
+        else:
             return CustomUser.objects.filter(id=user.id)
 
     def perform_create(self, serializer):
@@ -82,19 +114,18 @@ class CustomUserViewSet(viewsets.ModelViewSet):
             serializer.save(workspace=user.workspace, is_superuser=False)
 
 
-
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated, IsCompanyAdminOrReadOnly]
+    permission_classes = [IsAuthenticated, IsCommentAuthorOrReadOnly]
 
     def get_queryset(self):
-                if self.request.user.is_superuser :
-                    return Comment.objects.all()
-                else :
-                    return Comment.objects.filter(task__project__workspace=self.request.user.workspace)
-    def perform_create(self, serializer):
-            if self.request.user.is_superuser:
-                serializer.save()
-            else :
-                serializer.save(author=self.request.user)
+        if self.request.user.is_superuser:
+            return Comment.objects.all()
+        else:
+            return Comment.objects.filter(task__project__workspace=self.request.user.workspace)
 
+    def perform_create(self, serializer):
+        if self.request.user.is_superuser:
+            serializer.save()
+        else:
+            serializer.save(author=self.request.user)

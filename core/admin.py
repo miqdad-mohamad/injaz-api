@@ -10,6 +10,7 @@ class CustomUserAdmin(UserAdmin):
     )
     list_display = ['username', 'email', 'role', 'workspace', 'is_staff']
 
+
 admin.site.register(CustomUser, CustomUserAdmin)
 admin.site.register(Workspace)
 admin.site.register(Project)
