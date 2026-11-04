@@ -99,7 +99,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
 
         if user.is_superuser:
             return CustomUser.objects.all()
-        elif user.workspace is not None:
+        elif user.workspace is not None and user.role in ['AD', 'MO']:
             return CustomUser.objects.filter(workspace=user.workspace)
         else:
             return CustomUser.objects.filter(id=user.id)
@@ -110,7 +110,7 @@ class CustomUserViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             serializer.save()
 
-        elif user.workspace is not None:
+        elif user.workspace is not None and user.role in ['AD', 'MO']:
             serializer.save(workspace=user.workspace, is_superuser=False)
 
 

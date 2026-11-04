@@ -1,5 +1,4 @@
 from rest_framework import serializers
-
 from core.models import Workspace, Project, Task, CustomUser, Comment
 
 
@@ -17,7 +16,17 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Project
         fields = '__all__'
-        read_only_fields = ['workspace']
+        read_only_fields = ['created_at']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Get the request from context
+        request = self.context.get('request')
+        
+        # If the user is NOT a superuser, remove the workspace field from the form completely
+        if request and not request.user.is_superuser:
+            self.fields.pop('workspace', None)
 
 
 class TaskSerializer(serializers.ModelSerializer):

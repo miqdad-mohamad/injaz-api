@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from datetime import timedelta
 
 
 load_dotenv()
@@ -27,6 +28,8 @@ INSTALLED_APPS = [
     'core',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -109,7 +112,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Injaz API',
+    'DESCRIPTION': 'Multi-Tenant Project Management System API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
